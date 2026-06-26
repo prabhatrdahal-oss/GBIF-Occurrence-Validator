@@ -1,0 +1,11 @@
+services:
+  gbif-validator:
+    build: .
+    ports:
+      - "3838:3838"
+    volumes:
+      - ./app_full.R:/srv/shiny-server/app.R
+      - ./credentials:/root/.config/earthengine
+    environment:
+      - RETICULATE_PYTHON=/opt/venv/bin/python3
+      - SHINY_LOG_LEVEL=DEBUG

@@ -1,0 +1,16 @@
+credentials/
+*.json
+.Rhistory
+.RData
+.Rproj.user/
+.Ruserdata
+
+data/
+tmp/
+cache/
+
+*.log
+*.csv
+
+.DS_Store
+Thumbs.db
