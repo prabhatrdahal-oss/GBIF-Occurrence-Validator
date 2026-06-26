@@ -41,36 +41,7 @@ GBIF Occurrence Validator provides an automated and scalable framework for biodi
 
 Occurrence records are evaluated across five complementary validation layers spanning habitat, land cover, environmental similarity, climate suitability, and expert range knowledge. Results from all layers are integrated into a unified suspicion score.
 
-## Layer 1 — Copernicus Land Cover Habitat Validation
-
-Occurrence points are evaluated using Copernicus Global Land Cover (100 m) and compared against species-specific IUCN habitat preferences using the habitat translation framework of Lumbierres et al. (2021).
-
-## Layer 2 — ESRI 10 m Annual Land Cover Cross-Validation
-
-Land-cover validation is refined using higher-resolution ESRI 10 m Annual Land Cover data (2017–2025) to improve detection of habitat inconsistencies. ESRI classes are mapped to corresponding Copernicus classes to ensure methodological consistency, and disagreements are resolved in favor of ESRI due to its finer spatial resolution and more recent temporal coverage.
-
-## Layer 3 — AlphaEarth Landscape Embedding Outlier Detection
-
-64-dimensional AlphaEarth satellite embeddings are analyzed using Isolation Forest to identify environmental anomalies relative to the species’ occurrence distribution.
-
-## Layer 4 — Climate Suitability Scoring
-
-An ensemble species distribution model built using biomod2 and WorldClim bioclimatic variables identifies climatically implausible records.
-
-## Layer 5 — IUCN Expert Range Validation
-
-Occurrence records are intersected with IUCN species range polygons to identify observations outside expert-defined geographic distributions.
-
----
-
-# Suspicion Score Categories
-
-Validation outputs from all layers are combined into a multi-tier suspicion score:
-
-* **CLEAN** → No issues detected
-* **MODERATE** → Minor concern
-* **HIGH SUSPICION** → Multiple validation issues
-* **CLEAR ERROR** → Strong evidence of invalid occurrence
+<p align="center"> <img src="docs/screenshots/workflow_diagram.png" width="100%"> </p>
 
 ---
 
