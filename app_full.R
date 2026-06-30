@@ -1,7 +1,12 @@
 # =========================================================
 # SET PYTHON ENVIRONMENT BEFORE LOADING ANY PACKAGES
+# Must be done before reticulate or rgee are loaded
 # =========================================================
-#Sys.setenv(RETICULATE_PYTHON = "C:/Users/user/miniconda3/envs/rgee/python.exe")
+VENV_PYTHON <- "/opt/venv/bin/python3"
+if (file.exists(VENV_PYTHON)) {
+  Sys.setenv(RETICULATE_PYTHON = VENV_PYTHON)
+  reticulate::use_python(VENV_PYTHON, required = TRUE)
+}
 
 # =========================================================
 # GBIF OCCURRENCE VALIDATOR - SHINY APP
@@ -500,23 +505,33 @@ get_habitats_for_esri <- function(esri_type, redlist_habitats, odds_ratios, thre
 # =========================================================
 
 suspicion_colours <- c(
-  "CLEAN: Inside extant range + passes all checks"              = "#2ECC71",
-  "CLEAN: Inside extant range \u2014 one flag likely sampling bias" = "#82E0AA",
-  "CLEAN: Passes all checks"                                    = "#27AE60",
-  "CLEAN: One flag likely sampling bias"                        = "#A9DFBF",
-  "INVESTIGATE: Inside extant range but two checks failed"      = "#F39C12",
-  "INVESTIGATE: Inside extant range but multiple checks failed" = "#E67E22",
-  "INVESTIGATE: Historically extinct range"                     = "#F8C471",
-  "INVESTIGATE: Two checks failed"                              = "#F0B27A",
-  "INVESTIGATE: Outside IUCN range but passes all checks"       = "#F5CBA7",
-  "INVESTIGATE: Presence uncertain range"                       = "#FAD7A0",
-  "HIGH SUSPICION: Extinct range + environmental flags"         = "#E74C3C",
-  "HIGH SUSPICION: Uncertain range + environmental flags"       = "#C0392B",
-  "HIGH SUSPICION: Outside range + one check failed"            = "#EC7063",
-  "HIGH SUSPICION: Multiple checks failed"                      = "#CB4335",
-  "CLEAR ERROR: Ocean \u2014 impossible location"               = "#1A1A1A",
-  "CLEAR ERROR: Outside range + multiple checks failed"         = "#922B21",
-  "REVIEW: Manual check required"                               = "#BDC3C7"
+  # CLEAN — same green
+  "CLEAN: Inside extant range + passes all checks"              = "#2E8B57",
+  "CLEAN: Inside extant range — one flag likely sampling bias"  = "#2E8B57",
+  "CLEAN: Passes all checks"                                    = "#2E8B57",
+  "CLEAN: One flag likely sampling bias"                        = "#2E8B57",
+  
+  # INVESTIGATE — same orange
+  "INVESTIGATE: Inside extant range but two checks failed"      = "#F28E2B",
+  "INVESTIGATE: Inside extant range but multiple checks failed" = "#F28E2B",
+  "INVESTIGATE: Historically extinct range"                     = "#F28E2B",
+  "INVESTIGATE: Presence uncertain range"                       = "#F28E2B",
+  "INVESTIGATE: Outside IUCN range but passes all checks"       = "#F28E2B",
+  "INVESTIGATE: Two checks failed"                              = "#F28E2B",
+  "INVESTIGATE: Outside range + one check failed"               = "#F28E2B",
+  
+  # HIGH SUSPICION — same red
+  "HIGH SUSPICION: Outside range + two checks failed"           = "#D62728",
+  "HIGH SUSPICION: Multiple checks failed"                      = "#D62728",
+  "HIGH SUSPICION: Extinct range + environmental flags"         = "#D62728",
+  "HIGH SUSPICION: Uncertain range + environmental flags"       = "#D62728",
+  
+  # CLEAR ERROR — same dark red / navy
+  "CLEAR ERROR: Outside range + multiple checks failed"         = "#800000",
+  "CLEAR ERROR: Ocean — impossible location"                    = "#08306B",
+  
+  # REVIEW
+  "REVIEW: Manual check required"                               = "#BDBDBD"
 )
 
 flag_icon <- function(level) {
@@ -571,7 +586,7 @@ ui <- dashboardPage(
         }
         /* Only log box should be green */
         .log-box, .log-box pre, .log-box code, .log-box .shiny-text-output, #log {
-          color: #00ff00 !important;
+          color: #000000 !important;
         }
         /* Make all other text dark */
         body, .content-wrapper, .box, .shiny-text-output, 
@@ -843,10 +858,20 @@ ui <- dashboardPage(
                     plotlyOutput("plot_lc", height = 350))
               ),
               fluidRow(
-                box(width = 12,
-                    title  = "Habitat Profile — Copernicus x ESRI Combination Frequency",
+                box(width = 6, title = "Clean Points — Land Cover Distribution",
                     status = "success", solidHeader = TRUE,
-                    plotlyOutput("plot_habitat_combos", height = 450))
+                    plotlyOutput("plot_clean_lc", height = 380)),
+                box(width = 6, title = "Flagged Points (≥2 flags) — Land Cover Distribution",
+                    status = "danger", solidHeader = TRUE,
+                    plotlyOutput("plot_flagged_lc", height = 380))
+              ),
+              fluidRow(
+                box(width = 6, title = "Clean Points — IUCN Habitat Distribution",
+                    status = "success", solidHeader = TRUE,
+                    plotlyOutput("plot_clean_hab", height = 380)),
+                box(width = 6, title = "Flagged Points (≥2 flags) — IUCN Habitat Distribution",
+                    status = "danger", solidHeader = TRUE,
+                    plotlyOutput("plot_flagged_hab", height = 380))
               ),
               fluidRow(
                 box(width = 12, title = "Summary Statistics",
@@ -919,6 +944,12 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
   
   log_text  <- reactiveVal("")
+  
+  # Persistent log — written to /srv/logs (mounted volume) so logs survive restarts
+  log_dir  <- "/srv/logs"
+  if (!dir.exists(log_dir)) dir.create(log_dir, recursive = TRUE)
+  log_file <- file.path(log_dir,
+                        paste0("occurscan_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".log"))
   results   <- reactiveVal(NULL)
   pca_data  <- reactiveVal(NULL)
   emb_flags <- reactiveVal(NULL)
@@ -944,9 +975,9 @@ server <- function(input, output, session) {
   )
   
   add_log <- function(msg) {
-    current <- log_text()
-    log_text(paste0(current, "\n[",
-                    format(Sys.time(), "%H:%M:%S"), "] ", msg))
+    stamped <- paste0("[", format(Sys.time(), "%H:%M:%S"), "] ", msg)
+    log_text(paste0(log_text(), "\n", stamped))
+    cat(stamped, "\n", file = log_file, append = TRUE)
   }
   
   output$log <- renderText({ log_text() })
@@ -1311,8 +1342,40 @@ server <- function(input, output, session) {
       
       incProgress(0.03, detail = "Initialising GEE...")
       tryCatch({
-        rgee::ee_Initialize()
-        add_log("GEE initialised successfully")
+        # Use service account JSON key — shiny server runs as shiny user
+        cred_dir  <- "/home/shiny/.config/earthengine"
+        json_keys <- list.files(cred_dir, pattern = ".json$", full.names = TRUE)
+        
+        if (length(json_keys) > 0) {
+          key_file <- json_keys[1]
+          key_data <- jsonlite::fromJSON(key_file)
+          sa_email <- key_data$client_email
+          # Authenticate via service account — no browser/stdin needed
+          ee  <- reticulate::import("ee")
+          creds <- ee$ServiceAccountCredentials(sa_email, key_file)
+          ee$Initialize(credentials = creds)
+          
+          # rgee's ee_as_sf() / ee_exist_credentials() hardcode the lookup path
+          # to ~/.config/earthengine (i.e. /root when run as root, but our creds
+          # live under /home/shiny). Write a session info file to BOTH possible
+          # locations so rgee's internal helpers can always find it.
+          for (rgee_dir in c("/root/.config/earthengine", "/home/shiny/.config/earthengine")) {
+            tryCatch({
+              if (!dir.exists(rgee_dir)) dir.create(rgee_dir, recursive = TRUE)
+              session_file <- file.path(rgee_dir, "rgee_sessioninfo.txt")
+              if (!file.exists(session_file)) {
+                writeLines(
+                  paste("user", sa_email, sep = "\t"),
+                  session_file
+                )
+              }
+            }, error = function(e) NULL)
+          }
+          
+          add_log(paste("GEE initialised successfully (service account:", sa_email, ")"))
+        } else {
+          stop("No service account JSON key found in credentials folder.")
+        }
       }, error = function(e) {
         add_log(paste("GEE ERROR:", e$message))
       })
@@ -1339,38 +1402,29 @@ server <- function(input, output, session) {
             yr_pts <- gbif_clean %>% filter(year == yr)
             if (nrow(yr_pts) == 0) next
             
-            # ONLY use Copernicus if year is between 2015 and 2019
             if (yr >= 2015 && yr <= 2019) {
               yr_sf  <- st_as_sf(yr_pts,
                                  coords = c("decimalLongitude","decimalLatitude"),
                                  crs = 4326)
-              
               lc_img <- lc_collection$
                 filterDate(paste0(yr,"-01-01"), paste0(yr,"-12-31"))$first()
-              
               samp   <- lc_img$select("discrete_classification")$sampleRegions(
                 collection = sf_as_ee(yr_sf), scale = 100, geometries = TRUE
               )
-              results_list[[as.character(yr)]] <- ee_as_sf(samp, maxFeatures = 10000)
+              # Drop geometry so all years bind as plain data frames
+              results_list[[as.character(yr)]] <- ee_as_sf(samp, maxFeatures = 10000) %>%
+                st_drop_geometry()
             } else {
-              # For years outside 2015-2019, create a placeholder with NA values
               add_log(paste("Copernicus: No data available for year", yr, "(outside 2015-2019 range)"))
-              yr_pts$discrete_classification <- NA
-              yr_pts$lc_name <- "No data"
-              yr_pts$flag_habitat_cop <- NA
-              yr_pts$remark_cop <- paste0("No Copernicus data for year ", yr, " (data only available 2015-2019)")
+              # Plain data frame with NA code only — lc_name comes from join below
+              yr_pts$discrete_classification <- NA_integer_
               results_list[[as.character(yr)]] <- yr_pts
             }
           }
           
-          # Combine results - handling both sf and data.frame objects
-          cop_results <- bind_rows(results_list)
-          
-          # If there are actual Copernicus results, join with lookup
-          if (any(!is.na(cop_results$discrete_classification))) {
-            cop_results <- cop_results %>%
-              left_join(lc_lookup, by = c("discrete_classification" = "lc_value"))
-          }
+          # Combine results - properly handle sf objects
+          cop_results <- bind_rows(results_list) %>%
+            left_join(lc_lookup, by = c("discrete_classification" = "lc_value"))
           
           # Fetch IUCN habitats (shared with ESRI step)
           tiger_api  <- rl_species(genus = genus_name, species = sp_epithet,
@@ -1384,21 +1438,23 @@ server <- function(input, output, session) {
           valid_lc <- get_valid_lc(habitats, habitat_name_map,
                                    translation_table, threshold = 1.743)
           
-          final_table_cop <- cop_results %>%
+          # For years with actual data, calculate flags
+          cop_results <- cop_results %>%
             mutate(
-              flag_habitat_cop = case_when(
-                is.na(discrete_classification) ~ NA,
-                !(discrete_classification %in% valid_lc) ~ TRUE,
-                TRUE ~ FALSE
+              flag_habitat_cop = ifelse(
+                is.na(discrete_classification),
+                NA,
+                !(discrete_classification %in% valid_lc)
               ),
               remark_cop = case_when(
                 is.na(discrete_classification) ~ "No Copernicus data (only 2015-2019)",
-                is.na(lc_name) ~ "No Copernicus data (only 2015-2019)",
-                flag_habitat_cop ~ paste0("FLAGGED: LC '", coalesce(lc_name, "Unknown"), "' not valid for ", species_name),
-                TRUE ~ "CLEAN: Valid habitat (Copernicus)"
+                flag_habitat_cop == TRUE        ~ paste0("FLAGGED: LC '", coalesce(lc_name, "Unknown"), "' not valid for ", species_name),
+                TRUE                            ~ paste0("CLEAN: Valid habitat (Copernicus) \u2014 ", coalesce(lc_name, "Unknown"))
               )
-            ) %>%
-            st_drop_geometry() %>%
+            )
+          
+          # Convert to data frame
+          final_table_cop <- cop_results %>%
             rename(lc_name_cop                 = lc_name,
                    discrete_classification_cop = discrete_classification)
           
@@ -1412,7 +1468,9 @@ server <- function(input, output, session) {
             time = round(as.numeric(difftime(Sys.time(), benchmark$start, units = "secs")), 1)
           )
           
-        }, error = function(e) add_log(paste("ERROR - Copernicus:", e$message)))
+        }, error = function(e) {
+          add_log(paste("ERROR - Copernicus:", e$message))
+        })
       }
       # -------------------------------------------------
       # STEP 4b: ESRI LC (2017-2025)
@@ -1543,11 +1601,30 @@ server <- function(input, output, session) {
             dplyr::select(key, emb_year, outlier_score, flag_embedding)
           
           pca_obj <- prcomp(X)
+          # Join LC names for PCA colouring — emb_df only has GEE bands + key
+          pca_lc <- emb_df %>%
+            dplyr::select(key) %>%
+            left_join(
+              if (!is.null(final_table_cop))
+                final_table_cop %>% dplyr::select(key, lc_name_cop)
+              else
+                data.frame(key = character(0), lc_name_cop = character(0)),
+              by = "key"
+            ) %>%
+            left_join(
+              if (!is.null(final_table_esri))
+                final_table_esri %>% dplyr::select(key, lc_name_esri)
+              else
+                data.frame(key = character(0), lc_name_esri = character(0)),
+              by = "key"
+            ) %>%
+            mutate(lc_label = coalesce(lc_name_esri, "Unknown"))
           pca_data(list(
             scores     = pca_obj$x,
-            lc_names   = emb_df$lc_name_cop,
+            lc_names   = pca_lc$lc_label,
             outlier    = emb_df$flag_embedding,
-            emb_scores = scores
+            emb_scores = scores,
+            keys       = emb_df$key
           ))
           emb_flags(emb_df)
           
@@ -1587,7 +1664,15 @@ server <- function(input, output, session) {
                    latitude  = decimalLatitude) %>%
             dplyr::select(key, longitude, latitude)
           
-          bio_data <- worldclim_global(var = "bio", res = 2.5, path = "data/")
+          {
+            clim_path <- "/srv/climate_cache"
+            if (!dir.exists(clim_path)) {
+              clim_path <- file.path(tempdir(), "climate_cache")
+              dir.create(clim_path, recursive = TRUE, showWarnings = FALSE)
+            }
+            bio_data <- worldclim_global(var = "bio", res = 2.5, path = clim_path)
+          }
+          bio_data <- bio_data
           
           occ_ext  <- ext(min(occ_xy_train$longitude) - 2, max(occ_xy_train$longitude) + 2,
                           min(occ_xy_train$latitude)  - 2, max(occ_xy_train$latitude)  + 2)
@@ -1608,25 +1693,31 @@ server <- function(input, output, session) {
             dplyr::select(longitude, latitude) %>%
             as.data.frame()
           
+          # biomod2 writes model files to working dir — use a writable temp dir
+          biomod_wd <- file.path(tempdir(), "biomod2_runs")
+          dir.create(biomod_wd, recursive = TRUE, showWarnings = FALSE)
+          old_wd <- setwd(biomod_wd)
+          on.exit(setwd(old_wd), add = TRUE)
+          
           bm_data <- BIOMOD_FormatingData(
-            resp.var       = rep(1, nrow(resp_xy)),
-            expl.var       = bio_sel,
-            resp.xy        = resp_xy,
             resp.name      = species_name_clean,
+            resp.var       = rep(1, nrow(resp_xy)),
+            resp.xy        = as.matrix(resp_xy),
+            expl.var       = bio_sel,
+            PA.strategy    = "random",
             PA.nb.rep      = 2,
             PA.nb.absences = nrow(resp_xy),
-            PA.strategy    = "random",
-            filter.raster  = TRUE
+            na.rm          = TRUE
           )
           
           bm_out <- BIOMOD_Modeling(
             bm.format       = bm_data,
             modeling.id     = species_name_clean,
             models          = c("GLM","RF"),
-            nb.rep          = 2,
-            data.split.perc = 80,
-            metric.eval     = c("TSS","ROC"),
-            do.full.models  = TRUE,
+            CV.strategy     = "random",
+            CV.nb.rep       = 2,
+            CV.perc         = 0.8,
+            metric.eval     = c("TSS","AUCroc"),
             seed.val        = 42
           )
           
@@ -1637,7 +1728,7 @@ server <- function(input, output, session) {
             em.algo              = c("EMmean"),
             metric.select        = "TSS",
             metric.select.thresh = 0.4,
-            metric.eval          = c("TSS","ROC"),
+            metric.eval          = c("TSS","AUCroc"),
             seed.val             = 42
           )
           
@@ -1728,9 +1819,9 @@ server <- function(input, output, session) {
           
         }, error = function(e) add_log(paste("ERROR - SDM:", e$message)))
       }
-      # -------------------------------------------------
-      # STEP 7: IUCN RANGE
-      # -------------------------------------------------
+      # =========================================================
+      # STEP 7: IUCN RANGE - CASE-INSENSITIVE VERSION
+      # =========================================================
       
       range_result <- NULL
       
@@ -1775,51 +1866,136 @@ server <- function(input, output, session) {
             add_log(paste("Shapefile loaded:", nrow(iucn_range), "rows"))
             add_log(paste("Columns:", paste(names(iucn_range), collapse = ", ")))
             
-            # Store range for mapping
-            map_data$range_sf <- iucn_range
+            # =========================================================
+            # CRITICAL FIX: Case-insensitive column name handling
+            # =========================================================
             
+            # Get all column names
+            col_names <- names(iucn_range)
+            
+            # Find columns case-insensitively
+            presence_col <- col_names[grepl("^presence$", col_names, ignore.case = TRUE)]
+            origin_col <- col_names[grepl("^origin$", col_names, ignore.case = TRUE)]
+            seasonal_col <- col_names[grepl("^seasonal$|^seasonality$", col_names, ignore.case = TRUE)]
+            legend_col <- col_names[grepl("^legend$", col_names, ignore.case = TRUE)]
+            sci_name_col <- col_names[grepl("^sci_name$|^scientific_name$|^sciname$", col_names, ignore.case = TRUE)]
+            
+            add_log(paste("Found columns - PRESENCE:", 
+                          if (length(presence_col) > 0) presence_col[1] else "NONE"))
+            add_log(paste("Found columns - ORIGIN:", 
+                          if (length(origin_col) > 0) origin_col[1] else "NONE"))
+            add_log(paste("Found columns - SEASONAL:", 
+                          if (length(seasonal_col) > 0) seasonal_col[1] else "NONE"))
+            add_log(paste("Found columns - LEGEND:", 
+                          if (length(legend_col) > 0) legend_col[1] else "NONE"))
+            
+            # =========================================================
+            # CRITICAL: Handle case-insensitive column selection
+            # =========================================================
+            
+            # Select columns that exist (using the actual column names)
+            select_cols <- character()
+            if (length(presence_col) > 0) select_cols <- c(select_cols, presence_col[1])
+            if (length(origin_col) > 0) select_cols <- c(select_cols, origin_col[1])
+            if (length(seasonal_col) > 0) select_cols <- c(select_cols, seasonal_col[1])
+            if (length(legend_col) > 0) select_cols <- c(select_cols, legend_col[1])
+            
+            # If no columns found, try a different approach
+            if (length(select_cols) == 0) {
+              add_log("WARNING: No standard columns found. Using all columns.")
+              select_cols <- col_names
+            }
+            
+            add_log(paste("Selecting columns:", paste(select_cols, collapse = ", ")))
+            
+            # Get CRS
+            range_crs <- st_crs(iucn_range)
+            add_log(paste("Shapefile CRS:", if (!is.na(range_crs$epsg)) 
+              paste0("EPSG:", range_crs$epsg) else range_crs$input))
+            
+            # Create points with WGS84
             pts_sf <- gbif_clean %>%
-              st_as_sf(coords = c("decimalLongitude","decimalLatitude"),
-                       crs = 4326) %>%
-              st_transform(st_crs(iucn_range))
+              st_as_sf(coords = c("decimalLongitude", "decimalLatitude"),
+                       crs = 4326)
             
-            add_log("Points transformed. Joining...")
+            add_log(paste("Points CRS: EPSG:4326 (WGS84)"))
             
+            # Transform if needed
+            if (!is.na(range_crs$epsg) && range_crs$epsg != 4326) {
+              add_log(paste("Transforming points to", 
+                            if (!is.na(range_crs$epsg)) paste0("EPSG:", range_crs$epsg) else range_crs$input))
+              pts_sf <- st_transform(pts_sf, range_crs)
+            }
+            
+            # =========================================================
+            # Perform spatial join
+            # =========================================================
+            
+            add_log("Performing spatial join...")
+            
+            # Try with a small buffer for edge cases
+            pts_buffered <- st_buffer(pts_sf, dist = 1)
+            
+            # Join with the selected columns
             pts_joined <- st_join(
               pts_sf,
-              iucn_range %>% dplyr::select(presence, origin, seasonal),
-              join = st_intersects, left = TRUE
+              iucn_range %>% dplyr::select(all_of(select_cols)),
+              join = st_intersects,
+              left = TRUE
             )
             
-            add_log(paste("Available columns:", 
-                          paste(names(pts_joined), collapse = ", ")))
+            # Also try with buffer to catch edge cases
+            pts_joined_buffered <- st_join(
+              pts_buffered,
+              iucn_range %>% dplyr::select(all_of(select_cols)),
+              join = st_intersects,
+              left = TRUE
+            )
+            
+            # Check which gave more intersections
+            n_intersect <- sum(!is.na(pts_joined[[presence_col[1]]]))
+            n_intersect_buf <- sum(!is.na(pts_joined_buffered[[presence_col[1]]]))
+            
+            add_log(paste("Standard intersect:", n_intersect, "points"))
+            add_log(paste("With buffer:", n_intersect_buf, "points"))
+            
+            # Use the one with more intersections
+            if (n_intersect_buf > n_intersect) {
+              add_log("Using buffered result (caught edge cases)")
+              pts_joined <- pts_joined_buffered
+            }
+            
+            # =========================================================
+            # Create result with consistent column names
+            # =========================================================
+            
+            # Get the actual values using the found column names
+            presence_vals <- if (length(presence_col) > 0) pts_joined[[presence_col[1]]] else NA_integer_
+            origin_vals <- if (length(origin_col) > 0) pts_joined[[origin_col[1]]] else NA_integer_
+            seasonal_vals <- if (length(seasonal_col) > 0) pts_joined[[seasonal_col[1]]] else NA_integer_
+            legend_vals <- if (length(legend_col) > 0) pts_joined[[legend_col[1]]] else NA_character_
             
             range_result <- pts_joined %>%
               st_drop_geometry() %>%
-              dplyr::select(any_of(c("key", "presence", "origin", "seasonal"))) %>%
               mutate(
-                presence = if ("presence" %in% names(.)) presence else NA_integer_,
-                origin = if ("origin" %in% names(.)) origin else NA_integer_,
-                seasonal = if ("seasonal" %in% names(.)) seasonal else NA_integer_,
-                legend = case_when(
-                  presence == 1 ~ "Extant (resident)",
-                  presence == 2 ~ "Probably Extant",
-                  presence == 3 ~ "Possibly Extant",
-                  presence == 4 ~ "Possibly Extinct",
-                  presence == 5 ~ "Extinct",
-                  presence == 6 ~ "Presence Uncertain",
-                  presence == 7 ~ "Expected Additional Range",
-                  TRUE ~ NA_character_
-                )
-              ) %>%
-              rename(
-                PRESENCE = presence,
-                ORIGIN = origin,
-                SEASONAL = seasonal,
-                LEGEND = legend
-              ) %>%
-              dplyr::select(key, PRESENCE, LEGEND, SEASONAL, ORIGIN) %>%
-              mutate(
+                # Use the found columns or NA
+                PRESENCE = presence_vals,
+                ORIGIN = origin_vals,
+                SEASONAL = seasonal_vals,
+                LEGEND = legend_vals,
+                
+                # Create LEGEND if missing
+                LEGEND = case_when(
+                  is.na(LEGEND) & PRESENCE == 1 ~ "Extant (resident)",
+                  is.na(LEGEND) & PRESENCE == 2 ~ "Probably Extant",
+                  is.na(LEGEND) & PRESENCE == 3 ~ "Possibly Extant",
+                  is.na(LEGEND) & PRESENCE == 4 ~ "Possibly Extinct",
+                  is.na(LEGEND) & PRESENCE == 5 ~ "Extinct",
+                  is.na(LEGEND) & PRESENCE == 6 ~ "Presence Uncertain",
+                  is.na(LEGEND) & PRESENCE == 7 ~ "Expected Additional Range",
+                  TRUE ~ LEGEND
+                ),
+                
                 presence_priority = case_when(
                   PRESENCE == 1  ~ 1,
                   PRESENCE == 2  ~ 2,
@@ -1830,7 +2006,9 @@ server <- function(input, output, session) {
                   PRESENCE == 5  ~ 7,
                   is.na(PRESENCE)~ 8
                 ),
+                
                 in_iucn_range = PRESENCE %in% c(1, 2, 3, 7),
+                
                 origin_desc = case_when(
                   ORIGIN == 1 ~ "Native",
                   ORIGIN == 2 ~ "Reintroduced",
@@ -1840,6 +2018,7 @@ server <- function(input, output, session) {
                   ORIGIN == 6 ~ "Assisted Colonisation",
                   TRUE ~ "Unknown"
                 ),
+                
                 seasonal_desc = case_when(
                   SEASONAL == 1 ~ "Resident",
                   SEASONAL == 2 ~ "Breeding season",
@@ -1848,6 +2027,7 @@ server <- function(input, output, session) {
                   SEASONAL == 5 ~ "Seasonal Occurrence Uncertain",
                   TRUE ~ "Unknown"
                 ),
+                
                 range_remark = case_when(
                   PRESENCE == 1  ~ paste0("INSIDE: Extant (", origin_desc, ", ", seasonal_desc, ")"),
                   PRESENCE == 2  ~ paste0("INSIDE: Probably Extant (", origin_desc, ", ", seasonal_desc, ")"),
@@ -1859,6 +2039,7 @@ server <- function(input, output, session) {
                   is.na(PRESENCE) ~ "OUTSIDE: Point outside IUCN range",
                   TRUE ~ paste0("RANGE: Unknown status (PRESENCE=", PRESENCE, ")")
                 ),
+                
                 range_status = case_when(
                   PRESENCE == 1  ~ "Extant",
                   PRESENCE == 2  ~ "Probably Extant",
@@ -1870,6 +2051,7 @@ server <- function(input, output, session) {
                   is.na(PRESENCE) ~ "Outside",
                   TRUE ~ "Unknown"
                 ),
+                
                 range_suspicion = case_when(
                   PRESENCE == 1 & ORIGIN == 1 & SEASONAL == 1 ~ "CLEAN",
                   PRESENCE == 1 & ORIGIN == 1 ~ "CLEAN",
@@ -1907,6 +2089,10 @@ server <- function(input, output, session) {
                           sum(range_result$in_iucn_range == FALSE, na.rm = TRUE)))
             add_log(paste("  Unknown (in_iucn_range == NA):",
                           sum(is.na(range_result$in_iucn_range))))
+            
+            # Store range for mapping
+            map_data$range_sf <- iucn_range
+            
             # =========================================================
             # BENCHMARK: IUCN Range
             # =========================================================
@@ -1916,14 +2102,14 @@ server <- function(input, output, session) {
             )
             
           } else {
-            add_log("No range shapefile provided \u2014 skipping range check")
+            add_log("No range shapefile provided — skipping range check")
           }
           
         }, error = function(e) {
           add_log(paste("ERROR - Range:", e$message))
           add_log(paste("Error details:", capture.output(print(e))))
         })
-      }      
+      }     
       
       # -------------------------------------------------
       # STEP 8: MERGE WITH UNIFIED LAND COVER
@@ -2015,6 +2201,7 @@ server <- function(input, output, session) {
             associated_habitats = esri_habitat_list[[lc_name_esri]] %||% "Unknown",
             best_habitat_for_esri = esri_best_habitat[[lc_name_esri]] %||% "Unknown",
             unique_habitats = esri_unique_habitats[[lc_name_esri]] %||% "Unknown",
+            
             # ADD THIS - Clean habitat display (no odds ratios, no duplicates)
             # =========================================================
             habitat_display = {
@@ -2047,6 +2234,15 @@ server <- function(input, output, session) {
             }
           ) %>%
           ungroup() %>%
+          
+          # =========================================================
+        # ADD THIS - Handle any remaining NA values
+        # =========================================================
+        mutate(
+          associated_habitats = ifelse(is.na(associated_habitats) | associated_habitats == "", "Unknown", associated_habitats),
+          unique_habitats = ifelse(is.na(unique_habitats) | unique_habitats == "", "Unknown", unique_habitats),
+          habitat_display = ifelse(is.na(habitat_display) | habitat_display == "", "Unknown", habitat_display)
+        ) %>%
           mutate(
             # Check agreement
             lc_agreement = !is.na(mapped_esri_name) & mapped_esri_name == lc_name_esri,
@@ -2253,19 +2449,21 @@ server <- function(input, output, session) {
           "INVESTIGATE: Inside extant range but multiple checks failed",
         coalesce(merged$LEGEND,"") == "Extinct" & merged$n_flags == 0 ~
           "INVESTIGATE: Historically extinct range",
-        coalesce(merged$LEGEND,"") == "Extinct" & merged$n_flags >= 1 ~
+        coalesce(merged$LEGEND,"") == "Extinct" & merged$n_flags > 1 ~
           "HIGH SUSPICION: Extinct range + environmental flags",
         coalesce(merged$LEGEND,"") == "Presence Uncertain" & merged$n_flags == 0 ~
           "INVESTIGATE: Presence uncertain range",
-        coalesce(merged$LEGEND,"") == "Presence Uncertain" & merged$n_flags >= 1 ~
+        coalesce(merged$LEGEND,"") == "Presence Uncertain" & merged$n_flags > 1 ~
           "HIGH SUSPICION: Uncertain range + environmental flags",
         coalesce(merged$lc_name,"") == "Ocean" ~
           "CLEAR ERROR: Ocean \u2014 impossible location",
         is.na(merged$LEGEND) & merged$n_flags == 0 ~
           "INVESTIGATE: Outside IUCN range but passes all checks",
         is.na(merged$LEGEND) & merged$n_flags == 1 ~
-          "HIGH SUSPICION: Outside range + one check failed",
-        is.na(merged$LEGEND) & merged$n_flags >= 2 ~
+          "INVESTIGATE: Outside range + one check failed",
+        is.na(merged$LEGEND) & merged$n_flags == 2 ~
+          "HIGH SUSPICION: Outside range + two checks failed",
+        is.na(merged$LEGEND) & merged$n_flags >= 3 ~
           "CLEAR ERROR: Outside range + multiple checks failed",
         merged$n_flags == 0 ~ "CLEAN: Passes all checks",
         merged$n_flags == 1 ~ "CLEAN: One flag likely sampling bias",
@@ -2275,7 +2473,6 @@ server <- function(input, output, session) {
       )
       
       results(merged)
-      
       # =========================================================
       # BENCHMARK: Merging Results
       # =========================================================
@@ -2420,25 +2617,25 @@ server <- function(input, output, session) {
       "Country: ", df$countryCode, "<br><br>",
       
       "<b>Land Cover:</b><br>",
-      "Copernicus: ", df$lc_name_cop, "<br>",
-      "ESRI: ", df$lc_name_esri, "<br>",
-      "Final: ", df$lc_name, "<br>",
+      "Copernicus: ", ifelse(is.na(df$lc_name_cop), "No data", df$lc_name_cop), "<br>",
+      "ESRI: ", ifelse(is.na(df$lc_name_esri), "No data", df$lc_name_esri), "<br>",
+      "Final: ", ifelse(is.na(df$lc_name), "No data", df$lc_name), "<br>",
       "LC Status: ", ifelse(df$lc_agreement == TRUE, "✅ Agreed", 
                             ifelse(df$lc_agreement == FALSE, "ℹ️ ESRI-mapped", "Only one source")), "<br><br>",
       
       "<b>Validation Results:</b><br>",
-      ifelse(df$flag_habitat == TRUE, 
-             paste0("<span style='color:red;font-weight:bold'>❌ Habitat: Unsuitable</span><br>"),
-             paste0("✅ Habitat: Suitable<br>")),
+      ifelse(df$flag_habitat == TRUE,
+             paste0("<span style='color:red;font-weight:bold'>❌ Habitat: Unsuitable (",
+                    coalesce(df$habitat_display, "Unknown"), ")</span><br>"),
+             paste0("✅ Habitat: Suitable (", coalesce(df$habitat_display, "Unknown"), ")<br>")),
       
       ifelse(df$flag_embedding == 1, 
              paste0("<span style='color:red;font-weight:bold'>⚠️ Embedding: Outlier</span><br>"),
              paste0("✅ Embedding: Normal<br>")),
       
       ifelse(df$flag_climate_sdm == TRUE, 
-             paste0("<span style='color:red;font-weight:bold'>⚠️ Climate: Low suitability (", 
-                    round(df$suitability_score, 1), ")</span><br>"),
-             paste0("✅ Climate: Suitable (", round(df$suitability_score, 1), ")<br>")),
+             paste0("<span style='color:red;font-weight:bold'>⚠️ Climate: Low suitability (", ifelse(is.na(df$suitability_score), "—", round(df$suitability_score, 1)), ")</span><br>"),
+             paste0("✅ Climate: Suitable (", ifelse(is.na(df$suitability_score), "—", round(df$suitability_score, 1)), ")<br>")),
       
       ifelse(df$in_iucn_range == TRUE, 
              "✅ IUCN Range: Inside<br>",
@@ -2460,7 +2657,7 @@ server <- function(input, output, session) {
         weight = 1,
         opacity = 0.5,
         popup = popup_text,
-        popupOptions = popupOptions(maxWidth = 350, closeOnClick = TRUE),
+        popupOptions = popupOptions(maxWidth = 450, closeOnClick = TRUE),
         group = "Occurrence Points",
         layerId = ~key
       ) %>%
@@ -2509,7 +2706,16 @@ server <- function(input, output, session) {
     if (!is.null(input$map_show_sdm) && isTRUE(input$map_show_sdm)) {
       if (!is.null(map_data$sdm_rast)) {
         tryCatch({
-          sdm_proj <- project(map_data$sdm_rast, "EPSG:4326")
+          # Reproject to WGS84 and ensure correct alignment for leaflet
+          sdm_proj <- tryCatch({
+            r <- map_data$sdm_rast
+            # If already WGS84, just resample to a clean grid to avoid misalignment
+            if (!is.na(crs(r)) && grepl("4326", crs(r, describe=TRUE)$code)) {
+              r
+            } else {
+              project(r, "EPSG:4326", method = "bilinear")
+            }
+          }, error = function(e) project(map_data$sdm_rast, "EPSG:4326", method = "bilinear"))
           
           if (!is.null(sdm_proj)) {
             sdm_vals <- values(sdm_proj, na.rm = TRUE)
@@ -2527,7 +2733,7 @@ server <- function(input, output, session) {
                   colors = sdm_pal,
                   opacity = 0.6,
                   group = "SDM Prediction",
-                  project = FALSE
+                  project = TRUE
                 ) %>%
                 addLegend(
                   position = "bottomleft",
@@ -2761,42 +2967,69 @@ server <- function(input, output, session) {
              yaxis = list(title = ""), margin = list(l = 200))
   })
   
-  output$plot_habitat_combos <- renderPlotly({
-    df <- results(); req(df, "combo_id" %in% names(df))
-    
-    combo_counts <- df %>%
-      filter(!is.na(combo_id)) %>%
-      count(combo_id, sort = TRUE) %>%
-      head(20) %>%
-      left_join(
-        df %>%
-          filter(!is.na(combo_id)) %>%
-          dplyr::select(combo_id,
-                        cop_name  = lc_name_cop,
-                        esri_name = lc_name_esri) %>%
-          distinct(combo_id, .keep_all = TRUE),
-        by = "combo_id"
-      ) %>%
-      mutate(
-        label      = paste0(coalesce(cop_name,"?"),
-                            " x ",
-                            coalesce(esri_name,"?")),
-        is_flagged = combo_id %in%
-          (df %>%
-             filter(coalesce(flag_lc_outlier, FALSE)) %>%
-             pull(combo_id) %>%
-             unique())
-      )
-    
-    plot_ly(combo_counts,
-            x = ~n, y = ~reorder(label, n),
-            type = "bar", orientation = "h",
-            color = ~is_flagged,
-            colors = c("FALSE"="#2ECC71","TRUE"="#E74C3C")) %>%
-      layout(xaxis = list(title = "Number of records"),
-             yaxis = list(title = ""),
-             margin = list(l = 280),
-             legend = list(title = list(text = "Flagged as rare combo")))
+  # Helper: donut pie with percentages in hover
+  make_pie <- function(counts_df, palette_start) {
+    counts_df <- counts_df %>%
+      arrange(desc(n_pts)) %>%
+      mutate(pct = round(100 * n_pts / sum(n_pts), 1),
+             hover = paste0(label, "<br>", n_pts, " pts (", pct, "%)"))
+    n     <- nrow(counts_df)
+    pal   <- colorRampPalette(c(palette_start, "#ECF0F1"))(n)
+    plot_ly(counts_df,
+            labels  = ~label,
+            values  = ~n_pts,
+            type    = "pie",
+            hole    = 0.4,
+            text    = ~hover,
+            hovertemplate = "%{text}<extra></extra>",
+            textinfo      = "percent",
+            marker  = list(colors = pal,
+                           line   = list(color = "#ffffff", width = 1))) %>%
+      layout(showlegend = TRUE,
+             legend     = list(orientation = "v", x = 1, y = 0.5),
+             margin     = list(l = 10, r = 10, t = 10, b = 10))
+  }
+
+  # Land cover counts
+  lc_counts <- function(df) {
+    df %>%
+      filter(!is.na(lc_name_esri), lc_name_esri != "Unknown") %>%
+      count(lc_name_esri, sort = TRUE) %>%
+      rename(label = lc_name_esri, n_pts = n)
+  }
+
+  # Habitat counts — expand comma-separated habitat_display
+  hab_counts <- function(df) {
+    df %>%
+      filter(!is.na(habitat_display), habitat_display != "Unknown") %>%
+      mutate(hab_list = strsplit(as.character(habitat_display), ", ")) %>%
+      tidyr::unnest(hab_list) %>%
+      count(hab_list, sort = TRUE) %>%
+      rename(label = hab_list, n_pts = n)
+  }
+
+  output$plot_clean_lc <- renderPlotly({
+    df <- results(); req(df)
+    d <- lc_counts(df %>% filter(n_flags == 0)); req(nrow(d) > 0)
+    make_pie(d, "#2ECC71")
+  })
+
+  output$plot_flagged_lc <- renderPlotly({
+    df <- results(); req(df)
+    d <- lc_counts(df %>% filter(n_flags >= 2)); req(nrow(d) > 0)
+    make_pie(d, "#E74C3C")
+  })
+
+  output$plot_clean_hab <- renderPlotly({
+    df <- results(); req(df)
+    d <- hab_counts(df %>% filter(n_flags == 0)); req(nrow(d) > 0)
+    make_pie(d, "#27AE60")
+  })
+
+  output$plot_flagged_hab <- renderPlotly({
+    df <- results(); req(df)
+    d <- hab_counts(df %>% filter(n_flags >= 2)); req(nrow(d) > 0)
+    make_pie(d, "#C0392B")
   })
   
   output$summary_table <- renderTable({
@@ -2839,14 +3072,55 @@ server <- function(input, output, session) {
   
   output$pca_outliers <- renderPlotly({
     pca <- pca_data(); req(pca)
-    df  <- data.frame(
-      PC1     = pca$scores[,1],
-      PC2     = pca$scores[,2],
-      outlier = factor(pca$outlier, levels = c(0,1),
-                       labels = c("Normal","Outlier"))
+    
+    df <- data.frame(
+      PC1     = pca$scores[, 1],
+      PC2     = pca$scores[, 2],
+      outlier = factor(pca$outlier, levels = c(0, 1),
+                       labels = c("Normal", "Outlier")),
+      key     = pca$keys,
+      stringsAsFactors = FALSE
     )
-    plot_ly(df, x = ~PC1, y = ~PC2, color = ~outlier,
-            colors = c("Normal"="#95A5A6","Outlier"="#E74C3C"),
+    
+    # Join validation columns from merged results if available
+    res <- results()
+    if (!is.null(res) && "key" %in% names(res)) {
+      hover_cols <- intersect(
+        c("key","lc_name_esri","habitat_display","flag_habitat",
+          "suitability_score","flag_climate_sdm","in_iucn_range"),
+        names(res)
+      )
+      df <- df %>%
+        left_join(res %>% dplyr::select(all_of(hover_cols)), by = "key")
+    }
+    
+    # Build hover text
+    df <- df %>% mutate(
+      hover = paste0(
+        "<b>", outlier, "</b><br>",
+        "LC: ",      coalesce(lc_name_esri,   "—"), "<br>",
+        "Habitat: ", coalesce(habitat_display, "—"), " — ", ifelse(
+          !is.na(flag_habitat) & flag_habitat,
+          "\u274c Unsuitable", "\u2705 Suitable"
+        ), "<br>",
+        "Climate: ", ifelse(
+          !is.na(flag_climate_sdm) & flag_climate_sdm,
+          paste0("\u26a0\ufe0f Low (", round(coalesce(suitability_score, NA_real_), 1), ")"),
+          paste0("\u2705 Suitable (", round(coalesce(suitability_score, NA_real_), 1), ")")
+        ), "<br>",
+        "Range: ", case_when(
+          !is.na(in_iucn_range) & in_iucn_range  ~ "\u2705 Inside",
+          !is.na(in_iucn_range) & !in_iucn_range ~ "\u274c Outside",
+          TRUE                                    ~ "\u2753 Unknown"
+        )
+      )
+    )
+    
+    plot_ly(df, x = ~PC1, y = ~PC2,
+            color  = ~outlier,
+            colors = c("Normal" = "#95A5A6", "Outlier" = "#E74C3C"),
+            text   = ~hover,
+            hovertemplate = "%{text}<extra></extra>",
             type = "scatter", mode = "markers",
             marker = list(size = 5, opacity = 0.7)) %>%
       layout(title = "PCA \u2014 Embedding Outliers")

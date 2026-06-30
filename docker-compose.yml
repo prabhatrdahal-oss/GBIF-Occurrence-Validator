@@ -1,11 +1,21 @@
 services:
-  gbif-validator:
+  occurscan:
     build: .
+    container_name: occurscan
     ports:
       - "3838:3838"
     volumes:
+      # App — mount live so you can update without rebuilding
       - ./app_full.R:/srv/shiny-server/app.R
-      - ./credentials:/root/.config/earthengine
+      # GEE credentials
+      - ./credentials:/home/shiny/.config/earthengine
+      # Persistent logs — survives container restarts and power outages
+      - ./logs:/srv/logs
+      # WorldClim climate data cache — avoids re-downloading on each restart
+      - ./climate_cache:/srv/climate_cache
     environment:
       - RETICULATE_PYTHON=/opt/venv/bin/python3
-      - SHINY_LOG_LEVEL=DEBUG
+      - SHINY_LOG_LEVEL=INFO
+    restart: unless-stopped
+    # Raise memory limit for large species runs (e.g. 75k points)
+    mem_limit: 8g

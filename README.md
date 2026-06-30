@@ -122,11 +122,19 @@ Use the provided launcher:
 launch_app.bat
 ```
 
+To stop the app:
+
+```bash
+stop_app.bat
+```
+
 ## Manual Docker Run
 
 ```bash
 docker run -d -p 3838:3838 ^
--v "%CD%\credentials:/root/.config/earthengine" ^
+-v "%CD%\credentials:/home/shiny/.config/earthengine" ^
+-v "%CD%\climate_cache:/srv/climate_cache" ^
+-v "%CD%\logs:/srv/logs" ^
 --name gbif-validator ^
 prabs330/gbif-validator:latest
 ```
@@ -135,6 +143,17 @@ Access the app at:
 
 ```text
 http://localhost:3838
+```
+
+---
+
+# Climate Data
+
+The Climate SDM module requires WorldClim 2.1 bioclimatic variables (~1GB). These are not bundled in the Docker image due to size. If running via the Drive-distributed package, `climate_cache/` is pre-populated. If building from source, download WorldClim data into `climate_cache/` before first run:
+
+```r
+library(geodata)
+worldclim_global(var = "bio", res = 2.5, path = "climate_cache")
 ```
 
 ---
@@ -160,9 +179,7 @@ GBIF-Occurrence-Validator/
 ├── app_full.R
 ├── Dockerfile
 ├── docker-compose.yml
-├── build.bat
 ├── launch_app.bat
-├── restart_app.bat
 ├── stop_app.bat
 ├── README.md
 ├── LICENSE
