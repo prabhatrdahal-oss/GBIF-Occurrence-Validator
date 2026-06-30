@@ -222,15 +222,11 @@ Prabhat Raj Dahal
 
 Buchhorn, M., Smets, B., Bertels, L., De Roo, B., Lesiv, M., Tsendbazar, N. E., Herold, M., & Fritz, S. (2020). Copernicus Global Land Service: Land Cover 100 m Collection 3.
 
-Chapman, A. D. (2005). Principles and Methods of Data Cleaning: Primary Species and Species-Occurrence Data. Global Biodiversity Information Facility.
-
 Fick, S. E., & Hijmans, R. J. (2017). WorldClim 2: New 1-km spatial resolution climate surfaces for global land areas. International Journal of Climatology, 37, 4302–4315.
 
 Google DeepMind. (2024). AlphaEarth Foundations: Annual Satellite Embeddings.
 
 IUCN. 2025. IUCN Red List of Threatened Species. Version 2025-2 <www.iucnredlist.org>
-
-Jin, J., & Yang, J. (2020). BDcleaner: A workflow for cleaning taxonomic and geographic errors in occurrence data archived in biodiversity databases. Global Ecology and Conservation, 21, e00852.
 
 Karra, K., Kontgis, C., Statman-Weil, Z., Mazzariello, J. C., Mathis, M., & Brumby, S. P. (2021). Global land use / land cover with Sentinel-2 and deep learning at 10 m resolution. Scientific Data, 8, 232.
 
