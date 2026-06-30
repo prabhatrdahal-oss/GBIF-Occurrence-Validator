@@ -77,7 +77,34 @@ These credentials are required for:
 
 ---
 
-# Installation
+# Quick Start (Recommended)
+
+For the simplest setup with no manual configuration, download the complete offline package — including the Docker image, pre-cached WorldClim climate data, and launcher scripts — from Google Drive:
+
+**[Download GBIF Occurrence Validator (Drive)](https://drive.google.com/drive/folders/1AbDRYrcFfP80LtLr3JJI-PjDOx2VBxWm?usp=drive_link)**
+
+The Drive folder already includes the pre-built `credentials/`, `climate_cache/`, and `logs/` folders — no need to create these yourself.
+
+After downloading:
+1. Install Docker Desktop
+2. Place your Google Earth Engine service account JSON file inside the existing `credentials/` folder
+3. Double-click `launch_app.bat`
+
+The app will open automatically at `http://localhost:3838`.
+
+---
+
+# Installation (From Docker Hub / Source)
+
+## Create Required Folders
+
+Before pulling or running the image, create the following folders in your working directory:
+
+```bash
+mkdir credentials
+mkdir climate_cache
+mkdir logs
+```
 
 ## Pull Docker Image
 
@@ -95,20 +122,31 @@ docker build -t gbif-validator .
 
 # Credential Setup
 
-Create a local folder named:
-
-```text
-credentials/
-```
-
-Place your Google Earth Engine service account JSON file inside:
+Place your Google Earth Engine service account JSON file inside the `credentials/` folder:
 
 ```text
 credentials/
 └── service-account.json
 ```
 
-You will also need a valid IUCN Red List API token, which is entered through the application interface at runtime.
+You will also need a valid IUCN Red List API token, which is entered through the application interface at runtime. Tokens can be requested free of charge at [api.iucnredlist.org](https://api.iucnredlist.org/).
+
+## Climate Data Setup
+
+The `climate_cache/` folder must be populated with WorldClim 2.1 bioclimatic variables before the Climate SDM module will work. Choose one of the following:
+
+**Option 1 — Download the pre-cached folder (recommended, faster)**
+
+Download the `climate_cache/` folder from the [Google Drive package](https://drive.google.com/drive/folders/1AbDRYrcFfP80LtLr3JJI-PjDOx2VBxWm?usp=drive_link) and place its contents inside your local `climate_cache/` folder.
+
+**Option 2 — Download directly via R**
+
+```r
+library(geodata)
+worldclim_global(var = "bio", res = 2.5, path = "climate_cache")
+```
+
+This downloads ~1GB of data and may take several minutes depending on your connection.
 
 ---
 
@@ -130,30 +168,14 @@ stop_app.bat
 
 ## Manual Docker Run
 
-```bash
-docker run -d -p 3838:3838 ^
--v "%CD%\credentials:/home/shiny/.config/earthengine" ^
--v "%CD%\climate_cache:/srv/climate_cache" ^
--v "%CD%\logs:/srv/logs" ^
---name gbif-validator ^
-prabs330/gbif-validator:latest
+```powershell
+docker run -d -p 3838:3838 -v "${PWD}\credentials:/home/shiny/.config/earthengine" -v "${PWD}\climate_cache:/srv/climate_cache" -v "${PWD}\logs:/srv/logs" --name gbif-validator prabs330/gbif-validator:latest
 ```
 
 Access the app at:
 
 ```text
 http://localhost:3838
-```
-
----
-
-# Climate Data
-
-The Climate SDM module requires WorldClim 2.1 bioclimatic variables (~1GB). These are not bundled in the Docker image due to size. If running via the Drive-distributed package, `climate_cache/` is pre-populated. If building from source, download WorldClim data into `climate_cache/` before first run:
-
-```r
-library(geodata)
-worldclim_global(var = "bio", res = 2.5, path = "climate_cache")
 ```
 
 ---
@@ -207,7 +229,7 @@ Prabhat Raj Dahal
 This tool builds upon open datasets and infrastructure from:
 
 * GBIF
-* IUCN Red List
+* IUCN 2025. IUCN Red List of Threatened Species. Version 2025-2 <www.iucnredlist.org>
 * Copernicus Global Land Cover
 * ESRI Land Cover
 * WorldClim
