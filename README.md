@@ -67,7 +67,7 @@ The following external credentials are required for full functionality and must 
 
 * **Google Earth Engine service account credentials (JSON) [Google's official documentation](https://developers.google.com/workspace/guides/create-credentials)**
 * **IUCN Red List API token (You will also need a valid IUCN Red List API token, which is entered through the application interface at runtime. Tokens can be requested free of charge at [api.iucnredlist.org](https://api.iucnredlist.org/))**
-* **IUCN range map polygons of the species downloaded from www.iucnredlist.org (species profile page or spatial data download section)**
+* **IUCN range map polygons of the species downloaded from www.iucnredlist.org (species profile page or spatial data download section).**
 These credentials are required for:
 
 * Copernicus land-cover extraction
