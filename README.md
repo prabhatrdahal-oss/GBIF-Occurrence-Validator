@@ -87,7 +87,7 @@ The Drive folder already includes the pre-built `credentials/`, `climate_cache/`
 
 After downloading:
 1. Install Docker Desktop
-2. Place your Google Earth Engine service account JSON file inside the existing `credentials/` folder
+2. Place your Google Earth Engine service account JSON file inside the existing `credentials/` folder (for guidance on creating a Google Cloud service account and generating the JSON key, see [Google's official documentation](https://developers.google.com/workspace/guides/create-credentials))
 3. Double-click `launch_app.bat`
 
 The app will open automatically at `http://localhost:3838`.
@@ -133,13 +133,7 @@ You will also need a valid IUCN Red List API token, which is entered through the
 
 ## Climate Data Setup
 
-The `climate_cache/` folder must be populated with WorldClim 2.1 bioclimatic variables before the Climate SDM module will work. Choose one of the following:
-
-**Option 1 — Download the pre-cached folder (recommended, faster)**
-
-Download the `climate_cache/` folder from the [Google Drive package](https://drive.google.com/drive/folders/1AbDRYrcFfP80LtLr3JJI-PjDOx2VBxWm?usp=drive_link) and place its contents inside your local `climate_cache/` folder.
-
-**Option 2 — Download directly via R**
+The `climate_cache/` folder must be populated with WorldClim 2.1 bioclimatic variables before the Climate SDM module will work. If you have not already obtained this from the [Quick Start Drive package](#quick-start-recommended), download it directly via R:
 
 ```r
 library(geodata)
@@ -224,14 +218,26 @@ Prabhat Raj Dahal
 
 ---
 
-# Acknowledgements
+# References
 
-This tool builds upon open datasets and infrastructure from:
+Buchhorn, M., Smets, B., Bertels, L., De Roo, B., Lesiv, M., Tsendbazar, N. E., Herold, M., & Fritz, S. (2020). Copernicus Global Land Service: Land Cover 100 m Collection 3.
 
-* GBIF
-* IUCN 2025. IUCN Red List of Threatened Species. Version 2025-2 <www.iucnredlist.org>
-* Copernicus Global Land Cover
-* ESRI Land Cover
-* WorldClim
-* Google Earth Engine
-* Google DeepMind AlphaEarth
+Chapman, A. D. (2005). Principles and Methods of Data Cleaning: Primary Species and Species-Occurrence Data. Global Biodiversity Information Facility.
+
+Fick, S. E., & Hijmans, R. J. (2017). WorldClim 2: New 1-km spatial resolution climate surfaces for global land areas. International Journal of Climatology, 37, 4302–4315.
+
+Google DeepMind. (2024). AlphaEarth Foundations: Annual Satellite Embeddings.
+
+IUCN. 2025. IUCN Red List of Threatened Species. Version 2025-2 <www.iucnredlist.org>
+
+Jin, J., & Yang, J. (2020). BDcleaner: A workflow for cleaning taxonomic and geographic errors in occurrence data archived in biodiversity databases. Global Ecology and Conservation, 21, e00852.
+
+Karra, K., Kontgis, C., Statman-Weil, Z., Mazzariello, J. C., Mathis, M., & Brumby, S. P. (2021). Global land use / land cover with Sentinel-2 and deep learning at 10 m resolution. Scientific Data, 8, 232.
+
+Liu, F. T., Ting, K. M., & Zhou, Z.-H. (2008). Isolation Forest. In Proceedings of the 8th IEEE International Conference on Data Mining.
+
+Lumbierres, M., Dahal, P. R., Di Marco, M., Butchart, S. H. M., Donald, P. F., & Rondinini, C. (2021). Translating IUCN habitat classes into land-cover data to map area of habitat of terrestrial vertebrates. Conservation Biology.
+
+Thuiller, W., Lafourcade, B., Engler, R., & Araújo, M. B. (2009). BIOMOD—A platform for ensemble forecasting of species distributions. Ecography, 32, 369–373.
+
+Zizka, A., Silvestro, D., Andermann, T., et al. (2019). CoordinateCleaner: Standardized cleaning of occurrence records from biological collection databases. Methods in Ecology and Evolution, 10, 744–751.
