@@ -66,8 +66,8 @@ GBIF Occurrence Validator combines biodiversity informatics, geospatial analysis
 The following external credentials are required for full functionality and must be obtained separately by users:
 
 * **Google Earth Engine service account credentials (JSON)**
-* **IUCN Red List API token**
-
+* **IUCN Red List API token **
+* **IUCN Red range map polygons downloaded from www.iucnredlist.org (species profile page or spatial data download section)**
 These credentials are required for:
 
 * Copernicus land-cover extraction
@@ -133,7 +133,7 @@ You will also need a valid IUCN Red List API token, which is entered through the
 
 ## Climate Data Setup
 
-The `climate_cache/` folder must be populated with WorldClim 2.1 bioclimatic variables before the Climate SDM module will work. If you have not already obtained this from the [Quick Start Drive package](#quick-start-recommended), download it directly via R:
+The `climate_cache/` folder must be populated with WorldClim 2.1 bioclimatic variables before the Climate SDM module will work. You can download this folder from the [Quick Start Drive package](#quick-start-recommended), download it directly via R:
 
 ```r
 library(geodata)
@@ -145,22 +145,6 @@ This downloads ~1GB of data and may take several minutes depending on your conne
 ---
 
 # Running the App
-
-## Windows (Recommended)
-
-Use the provided launcher:
-
-```bash
-launch_app.bat
-```
-
-To stop the app:
-
-```bash
-stop_app.bat
-```
-
-## Manual Docker Run
 
 ```powershell
 docker run -d -p 3838:3838 -v "${PWD}\credentials:/home/shiny/.config/earthengine" -v "${PWD}\climate_cache:/srv/climate_cache" -v "${PWD}\logs:/srv/logs" --name gbif-validator prabs330/gbif-validator:latest
