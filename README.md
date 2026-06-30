@@ -86,7 +86,7 @@ For the simplest setup with no manual configuration, download the complete offli
 The Drive folder already includes the pre-built `credentials/`, `climate_cache/`, and `logs/` folders — no need to create these yourself.
 
 After downloading:
-1. Install Docker Desktop **[Docker Desktop] (https://www.docker.com/products/docker-desktop/)**
+1. Install Docker Desktop **(https://www.docker.com/products/docker-desktop/)**
 2. Place your Google Earth Engine service account JSON file inside the existing `credentials/` folder (for guidance on creating a Google Cloud service account and generating the JSON key, see [Google's official documentation](https://developers.google.com/workspace/guides/create-credentials))
 3. Double-click `launch_app.bat`
 
