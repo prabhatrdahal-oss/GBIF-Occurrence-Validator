@@ -66,7 +66,7 @@ GBIF Occurrence Validator combines biodiversity informatics, geospatial analysis
 The following external credentials are required for full functionality and must be obtained separately by users:
 
 * **Google Earth Engine service account credentials (JSON)**
-* **IUCN Red List API token **
+* **IUCN Red List API token**
 * **IUCN Red range map polygons downloaded from www.iucnredlist.org (species profile page or spatial data download section)**
 These credentials are required for:
 
